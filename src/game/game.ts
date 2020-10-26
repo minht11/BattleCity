@@ -61,22 +61,12 @@ export class Game extends EventTarget {
 
     this.timer = new Timer(this.update.bind(this))
 
-    loadLevel(CURRENT_LEVEL).then((levelData) => {
-      this.tiles = levelData.map
-      // this.enemies = levelData.tanks
-      const maxY = this.tiles.reduce((acc, prev) => Math.max(prev.position.y, acc), 0)
-      this.tileSize = 500 / (maxY + 1)
-
-      this.players = levelData.players.map((pl) => (
-        new PlayerTank(pl.spawn, pl.controls)
-      ))
-
-      this.draw()
-    }).catch(() => '')
-
     const events = ['keydown', 'keyup']
     events.forEach((eventName) => {
       window.addEventListener(eventName, (e: Event) => {
+        if (!this.isGameRunning) {
+          return
+        }
         const isKeyDown = e.type === 'keydown'
         const { code } = e as KeyboardEvent
 
@@ -92,10 +82,29 @@ export class Game extends EventTarget {
   }
 
   startGame(): void {
-    this.isGameRunning = true
+    loadLevel(CURRENT_LEVEL).then((levelData) => {
+      this.tiles = levelData.map
+      // this.enemies = levelData.tanks
+      const maxY = this.tiles.reduce((acc, prev) => Math.max(prev.position.y, acc), 0)
+      this.tileSize = 500 / (maxY + 1)
 
+      this.players = levelData.players.map((pl) => (
+        new PlayerTank(pl.spawn, pl.controls)
+      ))
+
+      this.draw()
+
+      this.isGameRunning = true
+
+      this.dispatchGameStateEvent()
+      this.timer.start()
+    }).catch(() => '')
+  }
+
+  stopGame(): void {
+    this.isGameRunning = false
+    this.clearDrawScreen()
     this.dispatchGameStateEvent()
-    this.timer.start()
   }
 
   private update(secondsPassed: number): void {
@@ -113,6 +122,9 @@ export class Game extends EventTarget {
         if (checkIfBulletHitSomething(pl1.bullet, pl2.position)) {
           pl1.destroyBullet()
           pl2.gotHit()
+          if (pl2.health < 1) {
+            this.stopGame()
+          }
           this.dispatchGameStateEvent()
         }
       })
@@ -166,10 +178,14 @@ export class Game extends EventTarget {
     this.draw()
   }
 
+  private clearDrawScreen() {
+    this.ctx.clearRect(0, 0, this.width, this.height)
+  }
+
   private draw() {
     const { ctx, tileSize } = this
 
-    ctx.clearRect(0, 0, this.width, this.height)
+    this.clearDrawScreen()
 
     ctx.lineWidth = 1
     ctx.shadowBlur = 0

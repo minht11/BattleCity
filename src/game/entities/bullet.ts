@@ -2,7 +2,7 @@ import { Direction } from '../../types/types'
 import { GameEntity } from './game-entity'
 import { Vec2 } from '../vec2'
 
-const BULLET_SPEED = 400
+const BULLET_SPEED = 600
 
 export class Bullet implements GameEntity {
   radius = 0.35

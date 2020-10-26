@@ -1727,7 +1727,7 @@ class Timer {
     }
 }
 
-const BULLET_SPEED = 400;
+const BULLET_SPEED = 600;
 class Bullet {
     constructor(direction, position) {
         this.direction = direction;
@@ -1946,17 +1946,12 @@ class Game extends EventTarget {
         this.height = 500;
         this.tileSize = 0;
         this.timer = new Timer(this.update.bind(this));
-        loadLevel(CURRENT_LEVEL).then((levelData) => {
-            this.tiles = levelData.map;
-            // this.enemies = levelData.tanks
-            const maxY = this.tiles.reduce((acc, prev) => Math.max(prev.position.y, acc), 0);
-            this.tileSize = 500 / (maxY + 1);
-            this.players = levelData.players.map((pl) => (new PlayerTank(pl.spawn, pl.controls)));
-            this.draw();
-        }).catch(() => '');
         const events = ['keydown', 'keyup'];
         events.forEach((eventName) => {
             window.addEventListener(eventName, (e) => {
+                if (!this.isGameRunning) {
+                    return;
+                }
                 const isKeyDown = e.type === 'keydown';
                 const { code } = e;
                 this.players.forEach((pl) => pl.keyboardAction(code, isKeyDown));
@@ -1972,9 +1967,22 @@ class Game extends EventTarget {
         }));
     }
     startGame() {
-        this.isGameRunning = true;
+        loadLevel(CURRENT_LEVEL).then((levelData) => {
+            this.tiles = levelData.map;
+            // this.enemies = levelData.tanks
+            const maxY = this.tiles.reduce((acc, prev) => Math.max(prev.position.y, acc), 0);
+            this.tileSize = 500 / (maxY + 1);
+            this.players = levelData.players.map((pl) => (new PlayerTank(pl.spawn, pl.controls)));
+            this.draw();
+            this.isGameRunning = true;
+            this.dispatchGameStateEvent();
+            this.timer.start();
+        }).catch(() => '');
+    }
+    stopGame() {
+        this.isGameRunning = false;
+        this.clearDrawScreen();
         this.dispatchGameStateEvent();
-        this.timer.start();
     }
     update(secondsPassed) {
         this.players.forEach((pl) => {
@@ -1990,6 +1998,9 @@ class Game extends EventTarget {
                 if (checkIfBulletHitSomething(pl1.bullet, pl2.position)) {
                     pl1.destroyBullet();
                     pl2.gotHit();
+                    if (pl2.health < 1) {
+                        this.stopGame();
+                    }
                     this.dispatchGameStateEvent();
                 }
             });
@@ -2034,9 +2045,12 @@ class Game extends EventTarget {
         }
         this.draw();
     }
+    clearDrawScreen() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+    }
     draw() {
         const { ctx, tileSize } = this;
-        ctx.clearRect(0, 0, this.width, this.height);
+        this.clearDrawScreen();
         ctx.lineWidth = 1;
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
