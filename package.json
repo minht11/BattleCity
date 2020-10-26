@@ -1,0 +1,42 @@
+{
+  "name": "music-pwa",
+  "version": "1.0.0",
+  "main": "./dist",
+  "license": "MIT",
+  "scripts": {
+    "start": "http-server-spa ./dist",
+    "build": "rollup -c --environment BUILD:production",
+    "watch": "rollup -cw --environment BUILD:production",
+    "build:dev": "rollup -c --environment BUILD:development",
+    "watch:dev": "rollup -cw --environment BUILD:development",
+    "watch:dev+css_debug": "rollup -cw --environment BUILD:development,DEBUG_CSS"
+  },
+  "dependencies": {
+    "@types/resize-observer-browser": "^0.1.3",
+    "haunted": "^4.7.0",
+    "lit-html": "^1.3.0",
+    "pwa-helpers": "^0.9.1",
+    "throttle-debounce": "^2.2.1"
+  },
+  "devDependencies": {
+    "@open-wc/rollup-plugin-html": "0.3.7",
+    "@rollup/plugin-alias": "^3.1.1",
+    "@rollup/plugin-commonjs": "^15.0.0",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@rollup/plugin-replace": "^2.3.3",
+    "@rollup/plugin-typescript": "^5.0.2",
+    "@typescript-eslint/eslint-plugin": "^3.10.0",
+    "@typescript-eslint/parser": "^3.10.0",
+    "cssnano": "^4.1.10",
+    "eslint": "^7.7.0",
+    "eslint-config-airbnb": "^18.2.0",
+    "eslint-config-airbnb-typescript": "^9.0.0",
+    "eslint-plugin-import": "^2.22.0",
+    "postcss-selector-parser": "^6.0.2",
+    "rollup": "^2.26.7",
+    "rollup-plugin-copy": "^3.3.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-pluginutils": "^2.8.2",
+    "typescript": "^4.0.2"
+  }
+}

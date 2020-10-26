@@ -1,0 +1,49 @@
+:host {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+canvas {
+  position: absolute;
+  left: 0px;
+  right: 0px;
+  top: 0px;
+  bottom: 0px;
+  margin: auto;
+  background: #222;
+}
+
+#controls-overlay {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#game-start-btn[hidden] {
+  display: none;
+}
+#game-start-btn {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 24px;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  background: #e5faff;
+  box-shadow: rgba(0, 156, 204, 200%) 0px 2px 8px 2px;
+}
