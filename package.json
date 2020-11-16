@@ -12,8 +12,10 @@
     "watch:dev+css_debug": "rollup -cw --environment BUILD:development,DEBUG_CSS"
   },
   "dependencies": {
+    "@mathigon/euclid": "^0.6.4",
     "@types/resize-observer-browser": "^0.1.3",
     "haunted": "^4.7.0",
+    "kld-intersections": "^0.7.0",
     "lit-html": "^1.3.0",
     "pwa-helpers": "^0.9.1",
     "throttle-debounce": "^2.2.1"

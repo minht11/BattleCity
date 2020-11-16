@@ -15,11 +15,11 @@ const GameShell = (host: HTMLElement) => {
 
   const gameRef = useRef<Game | null>(null)
 
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [canvasSize, setCanvasSize] = useState({
-    width: 0,
-    height: 0,
+  const [gameState, setGameState] = useState<GameStateEventDetails>({
+    isRunning: false,
+    playersHealth: [],
   })
+  const [canvasSize, setCanvasSize] = useState(0)
 
   useLayoutEffect(() => {
     const canvasEl = host.shadowRoot?.querySelector('canvas')
@@ -28,25 +28,25 @@ const GameShell = (host: HTMLElement) => {
       return
     }
 
-    gameRef.current = new Game(500, 500, ctx)
+    gameRef.current = new Game(ctx)
 
     gameRef.current.addEventListener('game-state', (e: Event) => {
       const { detail } = e as CustomEvent<GameStateEventDetails>
-      setIsPlaying(detail.isGameRunning)
+      setGameState(detail)
     })
 
     const ro = new ResizeObserver(([{ contentRect }]) => {
-      setCanvasSize({
-        width: contentRect.width,
-        height: contentRect.height,
-      })
+      const size = Math.min(
+        Math.min(contentRect.width, contentRect.height),
+      )
+      setCanvasSize(size)
     })
 
     ro.observe(document.documentElement)
   }, [])
 
   useLayoutEffect(() => {
-    // gameRef.current?.resize(canvasSize.width, canvasSize.height)
+    gameRef.current?.resize(canvasSize, canvasSize)
   }, [canvasSize])
 
   const onGameStartClickHandle = () => {
@@ -54,17 +54,18 @@ const GameShell = (host: HTMLElement) => {
   }
 
   return html`
-    <div>Health</div>
-    <div>
-      ${gameRef.current?.getPlayersHealth().map((health, index) => html`
-        <div>Player ${index + 1}: ${health}</div>
-      `)}
+    <div id='game-state' style=${`opacity: ${gameState.isRunning ? '1' : '0'}`}>
+      <h1>Health</h1>
+      <div>
+        ${gameState.playersHealth.map((health, index) => html`
+          <div>Player ${index + 1}: ${health}</div>
+        `)}
+      </div>
     </div>
-    <canvas width=${500} height=${500}></canvas>
-    <div id='controls-overlay'>
+    <canvas width=${canvasSize} height=${canvasSize}></canvas>
+    <div id='controls-overlay' ?hidden=${gameState.isRunning}>
       <button
           id='game-start-btn'
-          ?hidden=${isPlaying}
           @click=${onGameStartClickHandle}
       >
         Start game

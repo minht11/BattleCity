@@ -1,12 +1,17 @@
-import { Direction, PlayerData } from '../../types/types'
+import { Direction } from '../../../types/types'
 import { BaseTank } from './base-tank'
+
+export interface PlayerControls {
+  [key: string]: Direction | 'shoot',
+}
 
 export class PlayerTank extends BaseTank {
   health = 3
 
-  constructor(private spawn: PlayerData['spawn'], private controls: PlayerData['controls']) {
-    super()
-    this.position = spawn.clone()
+  private controls: PlayerControls = {}
+
+  setControls(controls: PlayerControls): void {
+    this.controls = controls
   }
 
   keyboardAction(keyCode: string, isPressed: boolean): void {

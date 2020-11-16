@@ -11,6 +11,7 @@ module.exports = {
     project: 'tsconfig.json',
   },
   rules: {
+    'class-methods-use-this': 'off',
     'import/no-cycle': 'off',
     'import/no-unresolved': 'off',
     'import/prefer-default-export': 'off',

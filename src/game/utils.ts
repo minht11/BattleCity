@@ -1,5 +1,3 @@
-import { Vec2 } from './vec2'
-
-export const createVec2List = (count: number): Vec2[] => (
-  Array.from({ length: count }, () => new Vec2(0, 0))
+export const clamp = (min: number, value: number, max: number): number => (
+  Math.min(Math.max(value, min), max)
 )

@@ -1,32 +1,42 @@
 :host {
-  height: 100%;
-  width: 100%;
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
   color: #fff;
 }
 
+#game-state {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 120px;
+  padding: 24px 0;
+  font-size: 16px;
+}
+h1 {
+  margin: 0;
+  font-size: 22px;
+  font-family: 'Roboto', sans-serif;
+}
+
 canvas {
-  position: absolute;
-  left: 0px;
-  right: 0px;
-  top: 0px;
-  bottom: 0px;
-  margin: auto;
   background: #222;
 }
 
 #controls-overlay {
-  position: relative;
+  position: absolute;
   z-index: 1;
   height: 100%;
   width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
+  background: #5088a930;
 }
-#game-start-btn[hidden] {
-  display: none;
+#controls-overlay[hidden] {
+  visibility: hidden;
 }
 #game-start-btn {
   -webkit-appearance: none;

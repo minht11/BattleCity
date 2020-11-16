@@ -1,62 +1,54 @@
-import {
-  MapTile,
-  Tiles,
-  Direction,
-} from '../types/types'
+import { Bounds } from '@mathigon/euclid'
 import { loadLevel } from './level-loader'
 import { Timer } from './timer'
-import { Vec2 } from './vec2'
-import { PlayerTank } from './entities/player-tank'
+import { PlayerTank } from './entities/tanks/player-tank'
 import { Bullet } from './entities/bullet'
-import { circleRectIntersect, rectIntersect } from './collision-detector'
+import { Entity } from './entities/entity'
+import { BaseTank, TankColors } from './entities/tanks/base-tank'
+import { BasicWall } from './entities/walls/basic-wall'
+import { ArmoredWall } from './entities/walls/armored-wall'
 
 export interface GameStateEventDetails {
-  isGameRunning: boolean,
+  isRunning: boolean,
+  playersHealth: number[],
 }
-
-interface DrawPointsOptions {
-  points: Vec2[],
-  lineWidth: number,
-  fillColor: string,
-  strokeColor: string,
-  shadowColor: string,
-}
-
-const checkIfBulletHitSomething = (bullet: Bullet | null, pos: Vec2) => (
-  bullet && circleRectIntersect({
-    circle: {
-      radius: bullet.radius,
-      pos: bullet.position,
-    },
-    rect: {
-      pos,
-      size: new Vec2(1, 1),
-    },
-  })
-)
 
 const CURRENT_LEVEL = 1
 
 export class Game extends EventTarget {
-  private players: PlayerTank[] = []
-
-  private tiles: MapTile[] = []
+  private entities: Entity[] = []
 
   protected isGameRunning = false
 
   private timer: Timer
 
-  private width = 500
+  private tileSize = 50
 
-  private height = 500
+  private bounds = new Bounds(0, 0, 0, 0)
 
-  private tileSize = 0
-
-  getPlayersHealth(): number[] {
-    return this.players.map((pl) => pl.health)
+  private prevGameState: GameStateEventDetails = {
+    isRunning: false,
+    playersHealth: [],
   }
 
-  constructor(width: number, height: number, public ctx: CanvasRenderingContext2D) {
+  private getPlayers(): PlayerTank[] {
+    return this.entities.filter((entity) => entity instanceof PlayerTank) as PlayerTank[]
+  }
+
+  private getPlayersHealth(): number[] {
+    return this.getPlayers().map((pl) => pl.health)
+  }
+
+  resize(w = this.width, h = this.height): void {
+    this.width = Math.min(w, h)
+    this.height = this.width
+    this.tileSize = Math.min(
+      this.width / this.bounds.xMax,
+      this.height / this.bounds.yMax,
+    )
+  }
+
+  constructor(public ctx: CanvasRenderingContext2D, public width = 500, public height = 500) {
     super()
 
     this.timer = new Timer(this.update.bind(this))
@@ -70,33 +62,44 @@ export class Game extends EventTarget {
         const isKeyDown = e.type === 'keydown'
         const { code } = e as KeyboardEvent
 
-        this.players.forEach((pl) => pl.keyboardAction(code, isKeyDown))
+        this.getPlayers().forEach((pl) => pl.keyboardAction(code, isKeyDown))
       })
     })
   }
 
-  private dispatchGameStateEvent() {
-    this.dispatchEvent(new CustomEvent<GameStateEventDetails>('game-state', {
-      detail: { isGameRunning: this.isGameRunning },
-    }))
+  private dispatchEventIfStateChanged() {
+    const newState: GameStateEventDetails = {
+      isRunning: this.isGameRunning,
+      playersHealth: this.getPlayersHealth(),
+    }
+
+    type T = keyof GameStateEventDetails
+    const didStateChange = Object.entries(newState).some(([key, value]) => (
+      this.prevGameState[key as T] !== value
+    ))
+
+    if (didStateChange) {
+      this.prevGameState = newState
+
+      this.dispatchEvent(new CustomEvent<GameStateEventDetails>('game-state', {
+        detail: newState,
+      }))
+    }
   }
 
   startGame(): void {
     loadLevel(CURRENT_LEVEL).then((levelData) => {
-      this.tiles = levelData.map
-      // this.enemies = levelData.tanks
-      const maxY = this.tiles.reduce((acc, prev) => Math.max(prev.position.y, acc), 0)
-      this.tileSize = 500 / (maxY + 1)
+      const { entities, mapSize } = levelData
 
-      this.players = levelData.players.map((pl) => (
-        new PlayerTank(pl.spawn, pl.controls)
-      ))
+      this.entities = entities
+      this.bounds = new Bounds(0, mapSize.x, 0, mapSize.y)
 
+      this.resize()
       this.draw()
 
       this.isGameRunning = true
 
-      this.dispatchGameStateEvent()
+      this.dispatchEventIfStateChanged()
       this.timer.start()
     }).catch(() => '')
   }
@@ -104,78 +107,38 @@ export class Game extends EventTarget {
   stopGame(): void {
     this.isGameRunning = false
     this.clearDrawScreen()
-    this.dispatchGameStateEvent()
   }
 
   private update(secondsPassed: number): void {
-    this.players.forEach((pl) => {
-      pl.update(secondsPassed)
-      pl.bullet?.update(secondsPassed)
+    this.entities.forEach((entity) => {
+      entity.update?.(secondsPassed)
+      entity.collideMapBounds?.(this.bounds)
     })
 
-    this.players.forEach((pl1) => {
-      this.players.forEach((pl2) => {
-        if (pl1 === pl2) {
-          return
-        }
-
-        if (checkIfBulletHitSomething(pl1.bullet, pl2.position)) {
-          pl1.destroyBullet()
-          pl2.gotHit()
-          if (pl2.health < 1) {
-            this.stopGame()
-          }
-          this.dispatchGameStateEvent()
+    this.entities.forEach((e1) => {
+      this.entities.forEach((e2) => {
+        const bothEntitiesAreWall = e1 instanceof BasicWall && e2 instanceof BasicWall
+        if (!bothEntitiesAreWall && e1 !== e2) {
+          e1.collide?.(e2)
         }
       })
     })
 
-    for (const tile of this.tiles) {
-      const isRegularWall = tile.type === Tiles.REGULAR_WALL
-      const isArmoredWall = tile.type === Tiles.ARMORED_WALL
-      const isAWall = isRegularWall || isArmoredWall
+    this.entities = this.entities.filter((entity) => (
+      !(entity instanceof BasicWall) || !entity.getDoesItNeedsToBeRemoved()
+    ))
 
-      if (isAWall) {
-        this.players.forEach((pl) => {
-          if (checkIfBulletHitSomething(pl.bullet, tile.position)) {
-            if (isRegularWall) {
-              tile.type = Tiles.EMPTY
-            }
-            pl.destroyBullet()
-          }
-
-          const sizee = new Vec2(1, 1)
-          if (pl.moveDirection !== Direction.STILL) {
-            if (rectIntersect(pl.position, sizee, tile.position, sizee)) {
-              // console.log('Is inters')
-              // console.log(pl.position, tile.position)
-              // console.log(pl.velocity)
-
-              const WALL_TILE_SIZE = 1
-              const { position, velocity } = pl
-              const { position: tilePosition } = tile
-
-              if (velocity.x < 0) {
-                position.x = tilePosition.x + WALL_TILE_SIZE
-              }
-
-              if (velocity.x > 0) {
-                position.x = tilePosition.x - WALL_TILE_SIZE
-              }
-
-              if (velocity.y < 0) {
-                position.y = tilePosition.y + WALL_TILE_SIZE
-              }
-
-              if (velocity.y > 0) {
-                position.y = tilePosition.y - WALL_TILE_SIZE
-              }
-            }
-          }
-        })
+    this.entities.forEach((entity) => {
+      if (
+        entity instanceof BaseTank
+        && entity.health < 1
+      ) {
+        this.stopGame()
       }
-    }
+    })
+
     this.draw()
+    this.dispatchEventIfStateChanged()
   }
 
   private clearDrawScreen() {
@@ -183,9 +146,38 @@ export class Game extends EventTarget {
   }
 
   private draw() {
-    const { ctx, tileSize } = this
-
     this.clearDrawScreen()
+
+    const { ctx } = this
+
+    this.entities.forEach((entity) => {
+      if (entity instanceof BasicWall) {
+        this.drawWall(entity)
+      }
+      if (entity instanceof BaseTank) {
+        const { colors } = entity
+
+        ctx.lineWidth = 2
+        ctx.strokeStyle = colors.glow
+        ctx.fillStyle = colors.fill
+
+        ctx.shadowColor = colors.glow
+        ctx.shadowBlur = 8
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 1
+
+        this.drawTank(entity)
+        this.drawBullet(entity.bullet)
+      }
+    })
+  }
+
+  private drawWall<T extends BasicWall>(wall: T) {
+    const { ctx, tileSize } = this
+    const { body } = wall
+
+    const isArmoredWall = wall instanceof ArmoredWall
+    const isRegularWall = !isArmoredWall
 
     ctx.lineWidth = 1
     ctx.shadowBlur = 0
@@ -193,70 +185,45 @@ export class Game extends EventTarget {
     ctx.shadowOffsetY = 0
     ctx.shadowColor = 'transparent'
 
-    this.tiles.forEach((tile) => {
-      const { type, position: { x, y } } = tile
+    if (isArmoredWall) {
+      ctx.fillStyle = '#fffce5'
+      ctx.strokeStyle = 'transparent'
+    }
 
-      const isArmoredWall = type === Tiles.ARMORED_WALL
-      const isRegularWall = type === Tiles.REGULAR_WALL
+    if (isRegularWall) {
+      ctx.fillStyle = '#40390d'
+      ctx.strokeStyle = '#fffce5'
+    }
 
-      if (isArmoredWall) {
-        ctx.fillStyle = '#fffce5'
-        ctx.strokeStyle = 'transparent'
-      }
+    if (isArmoredWall || isRegularWall) {
+      ctx.beginPath()
+      ctx.rect(body.p.x * tileSize, body.p.y * tileSize, body.w * tileSize, body.h * tileSize)
+      ctx.closePath()
 
-      if (isRegularWall) {
-        ctx.fillStyle = '#40390d'
-        ctx.strokeStyle = '#fffce5'
-      }
-
-      if (isArmoredWall || isRegularWall) {
-        ctx.beginPath()
-        ctx.rect(x * tileSize, y * tileSize, tileSize, tileSize)
-        ctx.closePath()
-
-        ctx.fill()
-        ctx.stroke()
-      }
-    })
-
-    this.players.forEach((pl) => {
-      this.drawPoints({
-        points: pl.points,
-        shadowColor: '#009ccc',
-        strokeColor: '#009ccc',
-        fillColor: '#e5faff',
-        lineWidth: 2,
-      })
-      this.drawBullet(pl.bullet)
-    })
+      ctx.fill()
+      ctx.stroke()
+    }
   }
 
-  private drawPoints(options: DrawPointsOptions): void {
-    this.ctx.lineWidth = options.lineWidth
-    this.ctx.strokeStyle = options.strokeColor
-    this.ctx.fillStyle = options.fillColor
+  private drawTank(tank: BaseTank) {
+    const { ctx, tileSize } = this
 
-    this.ctx.shadowColor = options.shadowColor
-    this.ctx.shadowBlur = 8
-    this.ctx.shadowOffsetX = 0
-    this.ctx.shadowOffsetY = 1
-
-    const { points } = options
+    const { points } = tank.body
     const { x, y } = points[0]
 
-    this.ctx.moveTo(x * this.tileSize, y * this.tileSize)
+    ctx.moveTo(x * tileSize, y * tileSize)
 
-    this.ctx.beginPath()
+    ctx.beginPath()
     points.forEach((point, i) => {
       if (i !== 0) {
-        this.ctx.lineTo(point.x * this.tileSize, point.y * this.tileSize)
+        ctx.lineTo(point.x * tileSize, point.y * tileSize)
       }
     })
-    this.ctx.lineTo(x * this.tileSize, y * this.tileSize)
-    this.ctx.closePath()
+    ctx.lineTo(x * tileSize, y * tileSize)
+    ctx.closePath()
 
-    this.ctx.stroke()
-    this.ctx.fill()
+    ctx.stroke()
+    ctx.fill()
   }
 
   drawBullet(bullet: Bullet | null): void {
@@ -265,23 +232,17 @@ export class Game extends EventTarget {
     }
     const { ctx, tileSize } = this
 
-    const { radius, position: pos } = bullet
-
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
-    ctx.shadowColor = 'transparent'
+    const { body } = bullet
 
     ctx.beginPath()
     ctx.arc(
-      pos.x * tileSize,
-      pos.y * tileSize,
-      radius * tileSize,
+      body.c.x * tileSize,
+      body.c.y * tileSize,
+      body.r * tileSize,
       0,
       2 * Math.PI,
       false,
     )
-    ctx.fillStyle = 'red'
     ctx.fill()
     ctx.lineWidth = 0
     ctx.strokeStyle = 'transparent'

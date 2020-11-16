@@ -1,15 +1,15 @@
-import {
-  Direction,
-  GameLevel,
-  PlayerData,
-  Tanks,
-  Tiles,
-} from '../types/types'
-import { Vec2 } from './vec2'
+import { Point } from '@mathigon/euclid'
+import { Direction, GameLevel } from '../types/types'
+import { Entity } from './entities/entity'
+import { PlayerTank } from './entities/tanks/player-tank'
+import { ArmoredWall } from './entities/walls/armored-wall'
+import { BasicWall } from './entities/walls/basic-wall'
 
 interface RawPlayerJson {
-  type: 'string',
-  spawn: { x: number, y: number },
+  colors: {
+    fill: string,
+    glow: string,
+  },
   controls: {
     up: string,
     down: string,
@@ -21,21 +21,18 @@ interface RawPlayerJson {
 
 interface RawLevelJson {
   players: RawPlayerJson[],
-  map: string[],
+  map: {
+    size: {
+      x: number,
+      y: number,
+    },
+    tiles: string[],
+  },
 }
 
-const matchTankToType = (tank: string) => {
-  switch (tank) {
-  case 'regular': return Tanks.REGULAR_TANK
-  case 'armored': return Tanks.ARMORED_TANK
-  default: throw new Error('No tanks exist with that name')
-  }
-}
-
-const parsePlayers = (jsonPlayers: RawLevelJson['players']): PlayerData[] => {
+const parsePlayers = (jsonPlayers: RawLevelJson['players']) => {
   const parsedPlayers = jsonPlayers.map((player) => ({
-    type: matchTankToType(player.type),
-    spawn: new Vec2(player.spawn.x, player.spawn.y),
+    colors: player.colors,
     controls: {
       [player.controls.up]: Direction.UP,
       [player.controls.down]: Direction.DOWN,
@@ -48,34 +45,49 @@ const parsePlayers = (jsonPlayers: RawLevelJson['players']): PlayerData[] => {
   return parsedPlayers
 }
 
-const matchTileToType = (tileCode: string) => {
+const createEntityFromType = (tileCode: string, pos: Point): Entity | null => {
   switch (tileCode) {
-    case '.': return Tiles.EMPTY
-    case '#': return Tiles.REGULAR_WALL
-    case '@': return Tiles.ARMORED_WALL
-    case '!': return Tiles.FLAG
-    default: throw new Error('No tile exist with that code.')
+    case '#': return new BasicWall(pos)
+    case '@': return new ArmoredWall(pos)
+    case '0': return new PlayerTank(pos)
+    case '1': return new PlayerTank(pos)
+    default: return null
   }
 }
 
 const parseMap = (jsonMap: RawLevelJson['map']) => {
-  const parsedMapInRows = jsonMap.map((row, y) => {
-    const parsedRow = [...row].map((tileCode, x) => ({
-      type: matchTileToType(tileCode),
-      position: new Vec2(x, y),
-    }))
-    return parsedRow
+  const { size, tiles } = jsonMap
+  const parsedMapInRows = tiles.map((row, y) => {
+    const parsedRow = [...row].map((tileCode, x) => (
+      createEntityFromType(tileCode, new Point(x, y))
+    ))
+    return parsedRow.filter((e) => e !== null) as Entity[]
   })
-  return parsedMapInRows.flat()
+  return {
+    entities: parsedMapInRows.flat(),
+    mapSize: new Point(size.x, size.y),
+  }
 }
 
 export const loadLevel = async (levelNumber: number): Promise<GameLevel> => {
   const response = await fetch(`/levels/${levelNumber}.json`)
   const result = await response.json() as RawLevelJson
 
+  const playersData = parsePlayers(result.players)
+  const map = parseMap(result.map)
+
+  let playerIndex = 0
+  map.entities.forEach((entity) => {
+    if (entity instanceof PlayerTank) {
+      const data = playersData[playerIndex]
+      entity.setControls(data.controls)
+      entity.setColors(data.colors)
+      playerIndex += 1
+    }
+  })
+
   return {
     levelNumber,
-    players: parsePlayers(result.players),
-    map: parseMap(result.map),
+    ...map,
   }
 }

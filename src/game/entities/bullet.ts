@@ -1,31 +1,47 @@
+import {
+  Circle,
+  GeoShape,
+  intersections,
+  Point,
+} from '@mathigon/euclid'
 import { Direction } from '../../types/types'
-import { GameEntity } from './game-entity'
-import { Vec2 } from '../vec2'
+import { Entity } from './entity'
 
-const BULLET_SPEED = 600
+const BULLET_RADIUS = 0.35
+const BULLET_SPEED = 900
 
-export class Bullet implements GameEntity {
-  radius = 0.35
+export class Bullet implements Entity {
+  body: Circle
 
-  velocity = new Vec2(1, 1)
+  private readonly velocity: Point
 
-  constructor(private direction: Omit<Direction, Direction.STILL>, public position: Vec2) {
-    if (direction === Direction.UP) {
-      this.velocity.set(0, -1)
+  constructor(direction: Omit<Direction, Direction.STILL>, position: Point) {
+    switch (direction) {
+      case Direction.DOWN:
+        this.velocity = new Point(0, 1)
+        break
+      case Direction.LEFT:
+        this.velocity = new Point(-1, 0)
+        break
+      case Direction.RIGHT:
+        this.velocity = new Point(1, 0)
+        break
+      default:
+        this.velocity = new Point(0, -1)
+        break
     }
-    if (direction === Direction.DOWN) {
-      this.velocity.set(0, 1)
-    }
-    if (direction === Direction.LEFT) {
-      this.velocity.set(0, -1)
-    }
-    if (direction === Direction.RIGHT) {
-      this.velocity.set(0, 1)
-    }
+
+    this.body = new Circle(position, BULLET_RADIUS)
   }
 
   update(secondsPassed: number): void {
-    this.position.x += this.velocity.x * BULLET_SPEED * (secondsPassed ** 2)
-    this.position.y += this.velocity.y * BULLET_SPEED * (secondsPassed ** 2)
+    this.body = this.body.shift(
+      this.velocity.x * BULLET_SPEED * (secondsPassed ** 2),
+      this.velocity.y * BULLET_SPEED * (secondsPassed ** 2),
+    )
+  }
+
+  checkIfItDidHit(shape: GeoShape): boolean {
+    return !!intersections(this.body, shape).length
   }
 }

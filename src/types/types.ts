@@ -1,4 +1,5 @@
-import { Vec2 } from '../game/vec2'
+import { Point } from '@mathigon/euclid'
+import { Entity } from '../game/entities/entity'
 
 export const enum Direction {
   STILL,
@@ -8,36 +9,10 @@ export const enum Direction {
   RIGHT,
 }
 
-export const enum Tanks {
-  PLAYER_TANK,
-  REGULAR_TANK,
-  ARMORED_TANK,
-}
-
-export const enum Tiles {
-  EMPTY,
-  REGULAR_WALL,
-  ARMORED_WALL,
-  FLAG,
-}
-
-export interface MapTile {
-  type: Tiles,
-  position: Vec2,
-}
-
-export interface PlayerData {
-  type: Tanks,
-  spawn: Vec2,
-  controls: {
-    [key: string]: Direction | 'shoot',
-  },
-}
-
 export interface GameLevel {
   levelNumber: number,
-  players: PlayerData[],
-  map: MapTile[],
+  entities: Entity[],
+  mapSize: Point,
 }
 
 declare global {
