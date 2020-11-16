@@ -1,17 +1,17 @@
+import { Point } from '@mathigon/euclid'
 import { Direction } from '../../../types/types'
+import { EntityColors } from '../entity'
 import { BaseTank } from './base-tank'
 
 export interface PlayerControls {
-  [key: string]: Direction | 'shoot',
+  [key: string]: Direction | 'fire',
 }
 
 export class PlayerTank extends BaseTank {
-  health = 3
+  protected health = 3
 
-  private controls: PlayerControls = {}
-
-  setControls(controls: PlayerControls): void {
-    this.controls = controls
+  constructor(private controls: PlayerControls, pos: Point, colors: EntityColors) {
+    super(pos, colors)
   }
 
   keyboardAction(keyCode: string, isPressed: boolean): void {
@@ -20,12 +20,11 @@ export class PlayerTank extends BaseTank {
         return
       }
 
-      if (value === 'shoot') {
-        this.shoot()
-        return
+      if (value !== 'fire') {
+        this.move(isPressed ? value : Direction.STILL)
+      } else if (isPressed) {
+        this.fireBullet()
       }
-
-      this.move(isPressed ? value : Direction.STILL)
     })
   }
 }

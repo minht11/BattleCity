@@ -4,9 +4,8 @@ import { Timer } from './timer'
 import { PlayerTank } from './entities/tanks/player-tank'
 import { Bullet } from './entities/bullet'
 import { Entity } from './entities/entity'
-import { BaseTank, TankColors } from './entities/tanks/base-tank'
+import { BaseTank } from './entities/tanks/base-tank'
 import { BasicWall } from './entities/walls/basic-wall'
-import { ArmoredWall } from './entities/walls/armored-wall'
 
 export interface GameStateEventDetails {
   isRunning: boolean,
@@ -18,7 +17,7 @@ const CURRENT_LEVEL = 1
 export class Game extends EventTarget {
   private entities: Entity[] = []
 
-  protected isGameRunning = false
+  private isGameRunning = false
 
   private timer: Timer
 
@@ -36,7 +35,7 @@ export class Game extends EventTarget {
   }
 
   private getPlayersHealth(): number[] {
-    return this.getPlayers().map((pl) => pl.health)
+    return this.getPlayers().map((pl) => pl.getHealth())
   }
 
   resize(w = this.width, h = this.height): void {
@@ -125,13 +124,13 @@ export class Game extends EventTarget {
     })
 
     this.entities = this.entities.filter((entity) => (
-      !(entity instanceof BasicWall) || !entity.getDoesItNeedsToBeRemoved()
+      !(entity instanceof BasicWall) || !entity.isDestroyed
     ))
 
     this.entities.forEach((entity) => {
       if (
         entity instanceof BaseTank
-        && entity.health < 1
+        && entity.getHealth() < 1
       ) {
         this.stopGame()
       }
@@ -145,27 +144,27 @@ export class Game extends EventTarget {
     this.ctx.clearRect(0, 0, this.width, this.height)
   }
 
+  private setDrawEntityStyles(lineWidth: number, { colors }: Entity) {
+    const { ctx } = this
+
+    ctx.lineWidth = lineWidth
+
+    ctx.strokeStyle = colors.border
+    ctx.fillStyle = colors.fill
+
+    ctx.shadowColor = colors.shadow
+    ctx.shadowBlur = 8
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 1
+  }
+
   private draw() {
     this.clearDrawScreen()
-
-    const { ctx } = this
 
     this.entities.forEach((entity) => {
       if (entity instanceof BasicWall) {
         this.drawWall(entity)
-      }
-      if (entity instanceof BaseTank) {
-        const { colors } = entity
-
-        ctx.lineWidth = 2
-        ctx.strokeStyle = colors.glow
-        ctx.fillStyle = colors.fill
-
-        ctx.shadowColor = colors.glow
-        ctx.shadowBlur = 8
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 1
-
+      } else if (entity instanceof BaseTank) {
         this.drawTank(entity)
         this.drawBullet(entity.bullet)
       }
@@ -174,35 +173,16 @@ export class Game extends EventTarget {
 
   private drawWall<T extends BasicWall>(wall: T) {
     const { ctx, tileSize } = this
-    const { body } = wall
+    const { p, w, h } = wall.body
 
-    const isArmoredWall = wall instanceof ArmoredWall
-    const isRegularWall = !isArmoredWall
+    this.setDrawEntityStyles(1, wall)
 
-    ctx.lineWidth = 1
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
-    ctx.shadowColor = 'transparent'
+    ctx.beginPath()
+    ctx.rect(p.x * tileSize, p.y * tileSize, w * tileSize, h * tileSize)
+    ctx.closePath()
 
-    if (isArmoredWall) {
-      ctx.fillStyle = '#fffce5'
-      ctx.strokeStyle = 'transparent'
-    }
-
-    if (isRegularWall) {
-      ctx.fillStyle = '#40390d'
-      ctx.strokeStyle = '#fffce5'
-    }
-
-    if (isArmoredWall || isRegularWall) {
-      ctx.beginPath()
-      ctx.rect(body.p.x * tileSize, body.p.y * tileSize, body.w * tileSize, body.h * tileSize)
-      ctx.closePath()
-
-      ctx.fill()
-      ctx.stroke()
-    }
+    ctx.fill()
+    ctx.stroke()
   }
 
   private drawTank(tank: BaseTank) {
@@ -210,6 +190,8 @@ export class Game extends EventTarget {
 
     const { points } = tank.body
     const { x, y } = points[0]
+
+    this.setDrawEntityStyles(2, tank)
 
     ctx.moveTo(x * tileSize, y * tileSize)
 
@@ -234,6 +216,8 @@ export class Game extends EventTarget {
 
     const { body } = bullet
 
+    this.setDrawEntityStyles(2, bullet)
+
     ctx.beginPath()
     ctx.arc(
       body.c.x * tileSize,
@@ -244,8 +228,6 @@ export class Game extends EventTarget {
       false,
     )
     ctx.fill()
-    ctx.lineWidth = 0
-    ctx.strokeStyle = 'transparent'
     ctx.stroke()
   }
 }

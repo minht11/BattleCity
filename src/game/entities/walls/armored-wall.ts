@@ -1,5 +1,11 @@
 import { BasicWall } from './basic-wall'
 
 export class ArmoredWall extends BasicWall {
-  protected markAsNeedToBeRemoved(): void {}
+  colors = {
+    fill: '#fffce5',
+    border: 'transparent',
+    shadow: 'transparent',
+  }
+
+  protected markAsDestroyed(): void {}
 }

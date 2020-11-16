@@ -1,7 +1,6 @@
 import typescript from 'typescript'
 import ts from '@rollup/plugin-typescript'
 import nodeResolve from '@rollup/plugin-node-resolve'
-import replace from '@rollup/plugin-replace'
 import commonJs from '@rollup/plugin-commonjs'
 import HTML from '@open-wc/rollup-plugin-html'
 import style from './rollup-plugins/style/rollup-plugin-style'
@@ -33,11 +32,6 @@ export default {
       extensions: ['.ts', '.js'],
     }),
     commonJs(),
-    replace({
-      'process.env.NODE_ENV': production
-        ? JSON.stringify('production')
-        : JSON.stringify('development'),
-    }),
     copy({
       targets: [{
         src: 'src/levels', dest: 'dist/',

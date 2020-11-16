@@ -4,32 +4,23 @@ import {
   intersections,
   Point,
 } from '@mathigon/euclid'
-import { Direction } from '../../types/types'
-import { Entity } from './entity'
+import { NotStillDirection } from '../../types/types'
+import { getVelocityFromDirection } from '../utils'
+import { Entity, EntityColors } from './entity'
 
-const BULLET_RADIUS = 0.35
-const BULLET_SPEED = 900
+const BULLET_RADIUS = 0.20
+const BULLET_SPEED = 800
 
 export class Bullet implements Entity {
   body: Circle
 
+  colors: EntityColors
+
   private readonly velocity: Point
 
-  constructor(direction: Omit<Direction, Direction.STILL>, position: Point) {
-    switch (direction) {
-      case Direction.DOWN:
-        this.velocity = new Point(0, 1)
-        break
-      case Direction.LEFT:
-        this.velocity = new Point(-1, 0)
-        break
-      case Direction.RIGHT:
-        this.velocity = new Point(1, 0)
-        break
-      default:
-        this.velocity = new Point(0, -1)
-        break
-    }
+  constructor(direction: NotStillDirection, position: Point, colors: EntityColors) {
+    this.colors = colors
+    this.velocity = getVelocityFromDirection(direction)
 
     this.body = new Circle(position, BULLET_RADIUS)
   }
@@ -41,7 +32,7 @@ export class Bullet implements Entity {
     )
   }
 
-  checkIfItDidHit(shape: GeoShape): boolean {
+  intersects(shape: GeoShape): boolean {
     return !!intersections(this.body, shape).length
   }
 }

@@ -1605,7 +1605,9 @@ function haunted({ render }) {
 const { component, createContext } = haunted({ render });
 
 const defineElement = (name, renderer, options = { useShadowDOM: true }) => {
-    customElements.define(name, component(renderer, options));
+    customElements.define(name, 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    component(renderer, options));
 };
 
 class StylesHook extends Hook {
@@ -2805,76 +2807,76 @@ class Bounds {
 }
 
 const clamp$1 = (min, value, max) => (Math.min(Math.max(value, min), max));
+const getVelocityFromDirection = (direction) => {
+    switch (direction) {
+        case 1 /* UP */: return new Point(0, -1);
+        case 2 /* DOWN */: return new Point(0, 1);
+        case 3 /* LEFT */: return new Point(-1, 0);
+        case 4 /* RIGHT */: return new Point(1, 0);
+        default: return new Point(0, 0);
+    }
+};
 
-const BULLET_RADIUS = 0.35;
-const BULLET_SPEED = 900;
+const BULLET_RADIUS = 0.20;
+const BULLET_SPEED = 800;
 class Bullet {
-    constructor(direction, position) {
-        this.direction = direction;
-        this.position = position;
-        this.velocity = new Point(0, 0);
-        if (direction === 1 /* UP */) {
-            this.velocity = new Point(0, -1);
-        }
-        if (direction === 2 /* DOWN */) {
-            this.velocity = new Point(0, 1);
-        }
-        if (direction === 3 /* LEFT */) {
-            this.velocity = new Point(-1, 0);
-        }
-        if (direction === 4 /* RIGHT */) {
-            this.velocity = new Point(1, 0);
-        }
+    constructor(direction, position, colors) {
+        this.colors = colors;
+        this.velocity = getVelocityFromDirection(direction);
         this.body = new Circle(position, BULLET_RADIUS);
     }
     update(secondsPassed) {
         this.body = this.body.shift(this.velocity.x * BULLET_SPEED * (secondsPassed ** 2), this.velocity.y * BULLET_SPEED * (secondsPassed ** 2));
     }
-    checkIfItDidHit(shape) {
+    intersects(shape) {
         return !!intersections(this.body, shape).length;
     }
 }
 
 class BasicWall {
     constructor(position) {
-        this.doesItNeedsToBeRemoved = false;
+        this.colors = {
+            fill: '#40390d',
+            border: '#fffce5',
+            shadow: 'transparent',
+        };
+        this.isDestroyed = false;
         this.body = new Rectangle(position, 1, 1);
     }
-    markAsNeedToBeRemoved() {
-        this.doesItNeedsToBeRemoved = true;
-    }
-    getDoesItNeedsToBeRemoved() {
-        return this.doesItNeedsToBeRemoved;
+    markAsDestroyed() {
+        this.isDestroyed = true;
     }
     collide(entity) {
         var _a;
         if (entity instanceof BaseTank
-            && ((_a = entity.bullet) === null || _a === void 0 ? void 0 : _a.checkIfItDidHit(this.body))) {
+            && ((_a = entity.bullet) === null || _a === void 0 ? void 0 : _a.intersects(this.body))) {
             entity.destroyBullet();
-            this.markAsNeedToBeRemoved();
+            this.markAsDestroyed();
         }
     }
 }
 
 const TRIANGLE_WIDTH = 1;
 const TRIANGLE_HEIGHT = 0.7;
+const TANK_SPEED = 500;
 class BaseTank {
-    constructor(pos) {
+    constructor(pos, colors) {
         this.pos = pos;
         this.colors = {
             fill: '#fff',
-            glow: '#fff',
+            border: '#fff',
+            shadow: 'transparent',
         };
-        this.positionInternal = new Point(0, 0);
         this.body = new Triangle();
+        this.bullet = null;
+        this.positionInternal = new Point(0, 0);
         this.health = 1;
         this.velocity = new Point(0, 0);
-        this.moveDirection = 0 /* STILL */;
         this.facing = 1 /* UP */;
         this.shouldIgnoreOneUpdate = false;
-        this.bullet = null;
         this.spawnPoint = pos;
         this.position = pos;
+        this.colors = colors;
     }
     get position() {
         return this.positionInternal;
@@ -2888,57 +2890,44 @@ class BaseTank {
         if (facing === 1 /* UP */) {
             this.body = new Triangle(new Point(x + sizeX / 2, y), new Point(x + sizeX, y + sizeY), new Point(x, y + sizeY));
         }
-        if (facing === 2 /* DOWN */) {
+        else if (facing === 2 /* DOWN */) {
             this.body = new Triangle(new Point(x, y), new Point(x + sizeX, y), new Point(x + sizeX / 2, y + sizeY));
         }
-        if (facing === 4 /* RIGHT */) {
+        else if (facing === 4 /* RIGHT */) {
             this.body = new Triangle(new Point(x, y), new Point(x + sizeY, y + sizeX / 2), new Point(x, y + sizeX));
         }
-        if (facing === 3 /* LEFT */) {
+        else if (facing === 3 /* LEFT */) {
             this.body = new Triangle(new Point(x + sizeY, y), new Point(x + sizeY, y + sizeX), new Point(x, y + sizeX / 2));
         }
-    }
-    setColors(colors) {
-        this.colors = colors;
     }
     getSizeAdjustedForDirection() {
         return this.facing === 1 /* UP */ || this.facing === 2 /* DOWN */
             ? new Point(TRIANGLE_WIDTH, TRIANGLE_HEIGHT)
             : new Point(TRIANGLE_HEIGHT, TRIANGLE_WIDTH);
     }
-    stopMovement() {
-        this.moveDirection = 0 /* STILL */;
-        this.velocity = new Point(0, 0);
+    getHealth() {
+        return this.health;
     }
-    shoot() {
+    fireBullet() {
         if (!this.bullet) {
-            this.bullet = new Bullet(this.facing, this.body.orthocenter);
+            this.bullet = new Bullet(this.facing, this.body.orthocenter, this.colors);
         }
     }
     destroyBullet() {
         this.bullet = null;
     }
-    gotHit() {
+    gotHitByTheExternalBullet() {
         this.health -= 1;
         if (this.health > 0) {
             this.position = this.spawnPoint;
         }
     }
     move(direction) {
-        this.moveDirection = direction;
-        let velocityValues = [0, 0];
         if (direction !== 0 /* STILL */) {
             this.shouldIgnoreOneUpdate = this.facing !== direction;
             this.facing = direction;
-            const isGoingUp = 1 /* UP */ === direction;
-            const isGoingLeft = 3 /* LEFT */ === direction;
-            const mainVelocityValue = isGoingUp || isGoingLeft ? -1 : 1;
-            velocityValues = [mainVelocityValue, 0];
-            if (isGoingUp || 2 /* DOWN */ === direction) {
-                velocityValues.reverse();
-            }
         }
-        this.velocity = new Point(...velocityValues);
+        this.velocity = getVelocityFromDirection(direction);
     }
     update(secondsPassed) {
         var _a;
@@ -2947,114 +2936,131 @@ class BaseTank {
             return;
         }
         const { velocity } = this;
-        const speed = 400;
-        const velocityIncrease = speed * (secondsPassed ** 2);
+        const velocityIncrease = TANK_SPEED * (secondsPassed ** 2);
         this.position = this.position.shift(velocity.x * velocityIncrease, velocity.y * velocityIncrease);
     }
     collide(entity) {
         if (entity instanceof BaseTank && entity.bullet) {
-            if (this.bullet && entity.bullet.checkIfItDidHit(this.bullet.body)) {
-                this.destroyBullet();
+            const { bullet: externalBullet } = entity;
+            const hitBullet = this.bullet && externalBullet.intersects(this.bullet.body);
+            const hitTank = !hitBullet && externalBullet.intersects(this.body);
+            if (hitBullet || hitTank) {
                 entity.destroyBullet();
             }
-            else if (entity.bullet.checkIfItDidHit(this.body)) {
-                this.gotHit();
-                entity.destroyBullet();
+            if (hitBullet) {
+                this.destroyBullet();
+            }
+            else if (hitTank) {
+                this.gotHitByTheExternalBullet();
             }
         }
-        if (entity instanceof BasicWall) {
-            if (intersections(this.body, entity.body).length) {
-                this.velocity = new Point(this.velocity.x * -1, this.velocity.y * -1);
-            }
+        if (entity instanceof BasicWall && intersections(this.body, entity.body).length) {
+            this.velocity = new Point(this.velocity.x * -1, this.velocity.y * -1);
         }
     }
     collideMapBounds(bounds) {
         var _a;
         const size = this.getSizeAdjustedForDirection();
         this.position = new Point(clamp$1(bounds.xMin, this.position.x, bounds.xMax - size.x), clamp$1(bounds.yMin, this.position.y, bounds.yMax - size.y));
-        if ((_a = this.bullet) === null || _a === void 0 ? void 0 : _a.checkIfItDidHit(bounds.rect)) {
+        if ((_a = this.bullet) === null || _a === void 0 ? void 0 : _a.intersects(bounds.rect)) {
             this.destroyBullet();
         }
     }
 }
 
 class PlayerTank extends BaseTank {
-    constructor() {
-        super(...arguments);
-        this.health = 3;
-        this.controls = {};
-    }
-    setControls(controls) {
+    constructor(controls, pos, colors) {
+        super(pos, colors);
         this.controls = controls;
+        this.health = 3;
     }
     keyboardAction(keyCode, isPressed) {
         Object.entries(this.controls).forEach(([key, value]) => {
             if (key !== keyCode) {
                 return;
             }
-            if (value === 'shoot') {
-                this.shoot();
-                return;
+            if (value !== 'fire') {
+                this.move(isPressed ? value : 0 /* STILL */);
             }
-            this.move(isPressed ? value : 0 /* STILL */);
+            else if (isPressed) {
+                this.fireBullet();
+            }
         });
     }
 }
 
 class ArmoredWall extends BasicWall {
-    markAsNeedToBeRemoved() { }
+    constructor() {
+        super(...arguments);
+        this.colors = {
+            fill: '#fffce5',
+            border: 'transparent',
+            shadow: 'transparent',
+        };
+    }
+    markAsDestroyed() { }
 }
 
 const parsePlayers = (jsonPlayers) => {
-    const parsedPlayers = jsonPlayers.map((player) => ({
-        colors: player.colors,
-        controls: {
-            [player.controls.up]: 1 /* UP */,
-            [player.controls.down]: 2 /* DOWN */,
-            [player.controls.left]: 3 /* LEFT */,
-            [player.controls.right]: 4 /* RIGHT */,
-            [player.controls.shoot]: 'shoot',
-        },
-    }));
-    return parsedPlayers;
+    const playersData = new Map();
+    jsonPlayers.forEach((player) => {
+        const { colors, controls } = player;
+        const value = {
+            colors: {
+                fill: colors.fill,
+                border: colors.glow,
+                shadow: colors.glow,
+            },
+            controls: {
+                [controls.up]: 1 /* UP */,
+                [controls.down]: 2 /* DOWN */,
+                [controls.left]: 3 /* LEFT */,
+                [controls.right]: 4 /* RIGHT */,
+                [controls.fire]: 'fire',
+            },
+        };
+        playersData.set(player.spawn, value);
+    });
+    return playersData;
 };
-const createEntityFromType = (tileCode, pos) => {
+const mapTileCodeToEntity = (tileCode) => {
     switch (tileCode) {
-        case '#': return new BasicWall(pos);
-        case '@': return new ArmoredWall(pos);
-        case '0': return new PlayerTank(pos);
-        case '1': return new PlayerTank(pos);
+        case '#': return BasicWall;
+        case '@': return ArmoredWall;
+        case '0': return PlayerTank;
+        case '1': return PlayerTank;
         default: return null;
     }
 };
-const parseMap = (jsonMap) => {
-    const { size, tiles } = jsonMap;
-    const parsedMapInRows = tiles.map((row, y) => {
-        const parsedRow = [...row].map((tileCode, x) => (createEntityFromType(tileCode, new Point(x, y))));
+const createEntity = (tileCode, p, playersData) => {
+    const EntityClass = mapTileCodeToEntity(tileCode);
+    if (EntityClass === BasicWall || EntityClass === ArmoredWall) {
+        return new EntityClass(p);
+    }
+    const playerData = playersData.get(tileCode);
+    if (EntityClass === PlayerTank && playerData) {
+        return new EntityClass(playerData.controls, p, playerData.colors);
+    }
+    return null;
+};
+const parseLevel = (levelJSON) => {
+    const playersData = parsePlayers(levelJSON.players);
+    const { map } = levelJSON;
+    const parsedMapInRows = map.tiles.map((row, y) => {
+        const parsedRow = [...row].map((tileCode, x) => (createEntity(tileCode, new Point(x, y), playersData)));
         return parsedRow.filter((e) => e !== null);
     });
     return {
         entities: parsedMapInRows.flat(),
-        mapSize: new Point(size.x, size.y),
+        mapSize: new Point(map.size.x, map.size.y),
     };
 };
 const loadLevel = async (levelNumber) => {
     const response = await fetch(`/levels/${levelNumber}.json`);
     const result = await response.json();
-    const playersData = parsePlayers(result.players);
-    const map = parseMap(result.map);
-    let playerIndex = 0;
-    map.entities.forEach((entity) => {
-        if (entity instanceof PlayerTank) {
-            const data = playersData[playerIndex];
-            entity.setControls(data.controls);
-            entity.setColors(data.colors);
-            playerIndex += 1;
-        }
-    });
     return {
         levelNumber,
-        ...map,
+        ...parseLevel(result),
     };
 };
 
@@ -3119,7 +3125,7 @@ class Game extends EventTarget {
         return this.entities.filter((entity) => entity instanceof PlayerTank);
     }
     getPlayersHealth() {
-        return this.getPlayers().map((pl) => pl.health);
+        return this.getPlayers().map((pl) => pl.getHealth());
     }
     resize(w = this.width, h = this.height) {
         this.width = Math.min(w, h);
@@ -3170,10 +3176,10 @@ class Game extends EventTarget {
                 }
             });
         });
-        this.entities = this.entities.filter((entity) => (!(entity instanceof BasicWall) || !entity.getDoesItNeedsToBeRemoved()));
+        this.entities = this.entities.filter((entity) => (!(entity instanceof BasicWall) || !entity.isDestroyed));
         this.entities.forEach((entity) => {
             if (entity instanceof BaseTank
-                && entity.health < 1) {
+                && entity.getHealth() < 1) {
                 this.stopGame();
             }
         });
@@ -3183,22 +3189,23 @@ class Game extends EventTarget {
     clearDrawScreen() {
         this.ctx.clearRect(0, 0, this.width, this.height);
     }
+    setDrawEntityStyles(lineWidth, { colors }) {
+        const { ctx } = this;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = colors.border;
+        ctx.fillStyle = colors.fill;
+        ctx.shadowColor = colors.shadow;
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 1;
+    }
     draw() {
         this.clearDrawScreen();
-        const { ctx } = this;
         this.entities.forEach((entity) => {
             if (entity instanceof BasicWall) {
                 this.drawWall(entity);
             }
-            if (entity instanceof BaseTank) {
-                const { colors } = entity;
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = colors.glow;
-                ctx.fillStyle = colors.fill;
-                ctx.shadowColor = colors.glow;
-                ctx.shadowBlur = 8;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 1;
+            else if (entity instanceof BaseTank) {
                 this.drawTank(entity);
                 this.drawBullet(entity.bullet);
             }
@@ -3206,34 +3213,19 @@ class Game extends EventTarget {
     }
     drawWall(wall) {
         const { ctx, tileSize } = this;
-        const { body } = wall;
-        const isArmoredWall = wall instanceof ArmoredWall;
-        const isRegularWall = !isArmoredWall;
-        ctx.lineWidth = 1;
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.shadowColor = 'transparent';
-        if (isArmoredWall) {
-            ctx.fillStyle = '#fffce5';
-            ctx.strokeStyle = 'transparent';
-        }
-        if (isRegularWall) {
-            ctx.fillStyle = '#40390d';
-            ctx.strokeStyle = '#fffce5';
-        }
-        if (isArmoredWall || isRegularWall) {
-            ctx.beginPath();
-            ctx.rect(body.p.x * tileSize, body.p.y * tileSize, body.w * tileSize, body.h * tileSize);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-        }
+        const { p, w, h } = wall.body;
+        this.setDrawEntityStyles(1, wall);
+        ctx.beginPath();
+        ctx.rect(p.x * tileSize, p.y * tileSize, w * tileSize, h * tileSize);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
     }
     drawTank(tank) {
         const { ctx, tileSize } = this;
         const { points } = tank.body;
         const { x, y } = points[0];
+        this.setDrawEntityStyles(2, tank);
         ctx.moveTo(x * tileSize, y * tileSize);
         ctx.beginPath();
         points.forEach((point, i) => {
@@ -3252,11 +3244,10 @@ class Game extends EventTarget {
         }
         const { ctx, tileSize } = this;
         const { body } = bullet;
+        this.setDrawEntityStyles(2, bullet);
         ctx.beginPath();
         ctx.arc(body.c.x * tileSize, body.c.y * tileSize, body.r * tileSize, 0, 2 * Math.PI, false);
         ctx.fill();
-        ctx.lineWidth = 0;
-        ctx.strokeStyle = 'transparent';
         ctx.stroke();
     }
 }

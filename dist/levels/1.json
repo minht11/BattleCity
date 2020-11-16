@@ -1,6 +1,7 @@
 {
 	"players": [
 		{
+			"spawn": "0",
 			"colors": {
 				"fill": "#e5faff",
 				"glow": "#009ccc"
@@ -10,10 +11,11 @@
 				"down": "ArrowDown",
 				"left": "ArrowLeft",
 				"right": "ArrowRight",
-				"shoot": "Space"
+				"fire": "Space"
 			}
 		},
 		{
+			"spawn": "1",
 			"colors": {
 				"fill": "#FFEBE5",
 				"glow": "#CC2F00"
@@ -23,7 +25,7 @@
 				"down": "KeyS",
 				"left": "KeyA",
 				"right": "KeyD",
-				"shoot": "KeyX"
+				"fire": "KeyX"
 			}
 		}
 	],

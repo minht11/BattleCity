@@ -1,6 +1,3 @@
-import { Point } from '@mathigon/euclid'
-import { Entity } from '../game/entities/entity'
-
 export const enum Direction {
   STILL,
   UP,
@@ -9,11 +6,7 @@ export const enum Direction {
   RIGHT,
 }
 
-export interface GameLevel {
-  levelNumber: number,
-  entities: Entity[],
-  mapSize: Point,
-}
+export type NotStillDirection = Exclude<Direction, Direction.STILL>
 
 declare global {
   interface Document {
