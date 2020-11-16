@@ -78,7 +78,7 @@ export abstract class BaseTank implements Entity {
 
   protected shouldIgnoreOneUpdate = false
 
-  constructor(public pos: Point, colors: EntityColors) {
+  constructor(pos: Point, colors: EntityColors) {
     this.spawnPoint = pos
     this.position = pos
     this.colors = colors
@@ -104,9 +104,9 @@ export abstract class BaseTank implements Entity {
     this.bullet = null
   }
 
-  gotHitByTheExternalBullet(): void {
+  gotHitByTheExternalBullet(forceRespwan = false): void {
     this.health -= 1
-    if (this.health > 0) {
+    if (this.health > 0 || forceRespwan) {
       this.position = this.spawnPoint
     }
   }

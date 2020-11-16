@@ -2861,7 +2861,6 @@ const TRIANGLE_HEIGHT = 0.7;
 const TANK_SPEED = 500;
 class BaseTank {
     constructor(pos, colors) {
-        this.pos = pos;
         this.colors = {
             fill: '#fff',
             border: '#fff',
@@ -2916,9 +2915,9 @@ class BaseTank {
     destroyBullet() {
         this.bullet = null;
     }
-    gotHitByTheExternalBullet() {
+    gotHitByTheExternalBullet(forceRespwan = false) {
         this.health -= 1;
-        if (this.health > 0) {
+        if (this.health > 0 || forceRespwan) {
             this.position = this.spawnPoint;
         }
     }

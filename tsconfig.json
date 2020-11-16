@@ -11,11 +11,12 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
   },
   "include": [
+    "./tests/",
     "./src/",
-    "./src/types/*.ts"
+    "./src/types/*.ts", "tests"
   ],
   "exclude": [
     "./node_modules",
